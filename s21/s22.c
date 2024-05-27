@@ -131,7 +131,7 @@ void addnet(IPAddress ip, IPAddress mask)
 
     // Nombre d'adresses adressables = (2^(nombre de bits dans l'adresse) - 2)
     uint32_t numHosts = (~subnetMask) - 1;
-
+        //test
     // Affichage des résultats
     printf("Classe du reseau: ");
     if (ip.octet[0] < 128) {
