@@ -1,2 +1,2 @@
-build/./graphe.c.o: graphe.c graphe.h
-graphe.h:
+build/./graphe.c.o: graphe.c graph.h
+graph.h:

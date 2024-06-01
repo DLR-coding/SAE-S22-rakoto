@@ -1,6 +1,6 @@
 #pragma once
 
-#include "graphe.h"
+#include "graph.h"
 #include <stdint.h>
 
 size_t degre(graphe const *g, sommet s);

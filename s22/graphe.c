@@ -1,4 +1,4 @@
-#include <graph.h>
+#include "graph.h"
 
 void init_graphe(graphe *g)
 {
@@ -44,16 +44,6 @@ void ajouter_sommet(graphe *g)
 
 // une fonction locale "static arete swap_sommets(arete a)" pourra être utile
 // cette fonction retourne une nouvelle arête dont les sommets sont les même que l'arête reçue mais inversés
-static arete swap_sommets(arete a)
-{
-    arete nv = { 
-        .s1 = a.s2, 
-        .s2 = a.s1
-        };
-    return nv;
-
-}
-
 bool existe_arete(graphe const *g, arete a)
 {
     // retourne true si l'arête a est contenue dans le graphe g, false sinon

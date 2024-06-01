@@ -1,4 +1,4 @@
-#include "graphe.h"
+#include "./graph.h"
 #include "algos.h"
 
 #include <stdlib.h>
