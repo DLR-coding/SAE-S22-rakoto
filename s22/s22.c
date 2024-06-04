@@ -321,7 +321,7 @@ bool lire_config(const char *nomFichier, reseau *r)
 
 //////////////:
 /////////// Partie 3
-
+/*
 void transfert_trame(equipement *eqt1, equipement *eqt2, int port1, int port2) {
     // Création d'une trame Ethernet pour un échange entre eqt1 et eqt2
     trame_ethernet trame;
@@ -356,7 +356,7 @@ void transfert_trame(equipement *eqt1, equipement *eqt2, int port1, int port2) {
     }
     printf("\n");
 } 
-
+*/
 void print_ethernet_trame(trame_ethernet *trame, bool hex_mode) {
     if (hex_mode) {
         // Affichage en hexadécimal
@@ -428,7 +428,7 @@ bool stp(reseau *r)
 
 
 int main() {
-    /*
+    
     PARTIE 2    
     // Créer une structure de réseau vide
     reseau r;
@@ -464,7 +464,7 @@ int main() {
     
     return 0;
 
-    */
+    /*
    // Partie 3
    // Créer une structure de réseau vide
     reseau r;
@@ -503,7 +503,7 @@ int main() {
         printf("%c", trame.data[i]);
     }
     printf("\n");
-
+*/
     return 0;
 
 
