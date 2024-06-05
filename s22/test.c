@@ -25,6 +25,14 @@ typedef struct TableDeCommutation {
     switchTableEntry *entrees;
 } TableDeCommutation;
 
+typedef struct {
+    int numport; // = id
+    enum etat_port { INCONNU, BLOQUE, ECoute, APPRENTISSAGE, TRANSMISSION } etat;
+    int cout;
+    MACAddress voisin;
+    bool port_racine;
+    bool port_designe;
+} port;
 
 
 // switch
@@ -32,7 +40,9 @@ typedef struct Switch
 {
     MACAddress mac;
     int nbport;
+    port *ports;
     int priorite;
+    int BID; //  = (priorite & mac)
     TableDeCommutation table; 
 } Switch; 
 
@@ -53,8 +63,7 @@ typedef struct equipement {
 
 typedef struct reseau {
     graphe m_graphe;
-    equipement* m_equipements;
-    size_t nb_equipements;
+    equipement* m_equipements;  size_t nb_equipements;
 } reseau;
 
 typedef struct trame_ethernet{
@@ -321,42 +330,8 @@ bool lire_config(const char *nomFichier, reseau *r)
 
 //////////////:
 /////////// Partie 3
-/*
-void transfert_trame(equipement *eqt1, equipement *eqt2, int port1, int port2) {
-    // Création d'une trame Ethernet pour un échange entre eqt1 et eqt2
-    trame_ethernet trame;
-    memset(trame.preamble, 0xaa, 7);
-    trame.preamble[6] = 0xab;
-    trame.sfd = 0xab;
-    memcpy(trame.destination_mac.octets, eqt2->data.m_station.m_adresseMac.octets, 6);
-    memcpy(trame.source_mac.octets, eqt1->data.m_station.m_adresseMac.octets, 6);
-    trame.type = 0x0800; // Type de la trame : IPv4
-    memcpy(trame.data, "Hello, world!", 13); // Données de la trame : "Hello, world!"
-    trame.fcs = 0; // FCS de la trame : à calculer ultérieurement
 
-    // Envoi de la trame Ethernet de eqt1 à eqt2 via les ports spécifiés
-    printf("Envoi de la trame Ethernet de %s à %s via les ports %d et %d :\n",
-           eqt1->data.m_station.m_adresseMac.octets, eqt2->data.m_station.m_adresseMac.octets,
-           port1, port2);
-    afficher_trame_ethernet(trame);
-    recevoirTrame(eqt2, &trame, port2);
 
-    // Réémission de la trame Ethernet de eqt2 à eqt1 via les ports spécifiés
-    printf("\nRéémission de la trame Ethernet de %s à %s via les ports %d et %d :\n",
-           eqt2->data.m_station.m_adresseMac.octets, eqt1->data.m_station.m_adresseMac.octets,
-           port2, port1);
-    afficher_trame_ethernet(trame);
-    recevoirTrame(eqt1, &trame, port1);
-
-    // Affichage de la réception de la trame Ethernet par eqt1
-    printf("\n%s a reçu la trame Ethernet de %s avec les données suivantes : ",
-           eqt1->data.m_station.m_adresseMac.octets, eqt2->data.m_station.m_adresseMac.octets);
-    for (int i = 0; i < 13; i++) {
-        printf("%c", trame.data[i]);
-    }
-    printf("\n");
-} 
-*/
 void print_ethernet_trame(trame_ethernet *trame, bool hex_mode) {
     if (hex_mode) {
         // Affichage en hexadécimal
@@ -367,7 +342,7 @@ void print_ethernet_trame(trame_ethernet *trame, bool hex_mode) {
         printf("\nSFD: %02x\n", trame->sfd);
         printf("Destination MAC: ");
         for (int i = 0; i < 6; i++) {
-            printMACAddress(trame->destination_mac);
+            printf("%02x ", trame->destination_mac);
         }
         printf("\nSource MAC: ");
         for (int i = 0; i < 6; i++) {
@@ -375,7 +350,7 @@ void print_ethernet_trame(trame_ethernet *trame, bool hex_mode) {
         }
         printf("\nType: %04x\n", trame->type);
         printf("Data: ");
-        
+        printMACAddress(trame->source_mac);
         printf("\nFCS: %08x\n", trame->fcs);
     } else {
         // Affichage en mode utilisateur
@@ -407,104 +382,86 @@ void print_ethernet_trame(trame_ethernet *trame, bool hex_mode) {
     }
 }
 
-/// Partie 4
-bool stp(reseau *r)
-{
-    /*un switch a nbports : 
-        switch 1: 
-            ports[nbports]
-            etat_ports[nbports]
-            port[1] --> etat_ports[1]            
-    */
-   /*
-    // election switch racine
-    for (size_t i = 0; i < r->nb_equipements; i++)
-    {
-        
-    }
-    */
-   return false;
-}
 
 
-int main() {
-    
-    PARTIE 2    
-    // Créer une structure de réseau vide
-    reseau r;
+void stp(reseau *r) {
+    // Initialisation des variables
+    int i, j;
+    Switch *s;
+    //port *p;
+    trame_ethernet *bpdu;
 
-    // Lire le fichier de configuration et créer le réseau
-    lire_config("reseau_config.txt", &r);
-
-    // Afficher les informations du réseau
-    printf("Nombre d'équipements : %zu\n", r.nb_equipements);
-    for (size_t i = 0; i < r.nb_equipements; i++) {
-        printf("Équipement %zu :\n", i+1);
-        if (r.m_equipements[i].type == STATION) {
-            printf("  Type : Station\n");
-            printf("  Adresse MAC : ");
-            printMACAddress(r.m_equipements[i].data.m_station.m_adresseMac);
-            printf("  Adresse IP : ");
-            printIPAddress(r.m_equipements[i].data.m_station.m_adresseIP);
-            printf("\n");
-        } else if (r.m_equipements[i].type == SWITCH) {
-            printf("  Type : Switch\n");
-            printf("  Adresse MAC : ");
-            printMACAddress(r.m_equipements[i].data.m_switch.mac);
-            printf("  Nombre de ports : %d\n", r.m_equipements[i].data.m_switch.nbport);
-            printf("  Priorité : %d\n", r.m_equipements[i].data.m_switch.priorite);
-            printf("  Table de commutation :\n");
-            printSwitchTable(&r.m_equipements[i].data.m_switch);
+    // Initialisation des switchs et des ports (port INCONNU , )
+    for (i = 0; i < r->nb_equipements; i++) {
+        if (r->m_equipements[i].type == SWITCH) {
+            s = &r->m_equipements[i].data.m_switch;
+            s->id = i;
+            s->racine = i;
+            s->cout_racine = 0;
+            for (j = 0; j < s->nbport; j++) {
+                p = &s->ports[j];
+                p->id = j;
+                p->etat = INCONNU;
+                p->port_racine = false;
+                p->port_designe = false;
+            }
         }
     }
 
-    // Libérer la mémoire allouée pour les équipements et la structure de graphe
-    free(r.m_equipements);
-    free_graphe(&r.m_graphe);
-    
-    return 0;
-
-    /*
-   // Partie 3
-   // Créer une structure de réseau vide
-    reseau r;
-
-    // Lire le fichier de configuration et créer le réseau
-    lire_config("reseau_config.txt", &r);
-
-     // Création d'une trame Ethernet pour un échange entre st1 et st2
-     trame_ethernet trame;
-    for(int i = 0; i < 7; i++) {
-        trame.preambule[i] = 0xaa;
+    // Élection de la racine
+    for (i = 0; i < r->nb_equipements; i++) {
+        if (r->m_equipements[i].type == SWITCH) {
+            s = &r->m_equipements[i].data.m_switch;
+            if (s->id < s->racine) {
+                s->racine = s->id;
+            }
+        }
     }
-    trame.preambule[6] = 0xab;
-    trame.sfd = 0xab;
-    for(int i = 0; i < 6; i++) {
-        trame.destination_mac.octets[i] = mac_st2.octets[i];
-        trame.source_mac.octets[i] = mac_st1.octets[i];
+
+    // Calcul de la distance à la racine et détermination des ports racines
+    bool converge = false;
+    while (!converge) {
+        converge = true;
+        for (i = 0; i < r->nb_equipements; i++) {
+            if (r->m_equipements[i].type == SWITCH) {
+                s = &r->m_equipements[i].data.m_switch;
+                if (s->id != s->racine) {
+                    converge = false;
+                }
+                for (j = 0; j < s->nbport; j++) {
+                    p = &s->ports[j];
+                    if (p->etat != BLOQUE) {
+                        bpdu = creer_BPDU(s->racine, s->cout_racine, s->id);
+                        envoyer_BPDU(r, bpdu, s->id, j);
+                        free(bpdu);
+                    }
+                    if (p->etat == INCONNU) {
+                        converge = false;
+                    }
+                    if (p->port_racine == false && p->cout_racine < s->cout_racine) {
+                        s->cout_racine = p->cout_racine;
+                        s->port_racine_id = p->id;
+                        p->port_racine = true;
+                    }
+                }
+            }
+        }
+        // Attendre un certain temps avant la prochaine itération
+        usleep(100000);
     }
-    trame.type = 0x0800; // type IPv4
-    memcpy(trame.data, "Hello, world!", 13); // Données de la trame : "Hello, world!"
-    trame.fcs = 0; // FCS de la trame : à calculer ultérieurement
 
-    // Envoi de la trame Ethernet de st1 à sw1
-    printf("Envoi de la trame Ethernet de st1 à sw1 :\n");
-    afficher_trame_ethernet(trame);
-    recevoirTrame(&sw1, &trame, 1);
-
-    // Réémission de la trame Ethernet de sw1 à st2
-    printf("\nRéémission de la trame Ethernet de sw1 à st2 :\n");
-    afficher_trame_ethernet(trame);
-    recevoirTrame(&st2, &trame, 2);
-
-    // Affichage de la réception de la trame Ethernet par st2
-    printf("\nst2 a reçu la trame Ethernet de st1 avec les données suivantes : ");
-    for (int i = 0; i < 13; i++) {
-        printf("%c", trame.data[i]);
+    // Détermination des ports désignés et bloqués
+    for (i = 0; i < r->nb_equipements; i++) {
+        if (r->m_equipements[i].type == SWITCH) {
+            s = &r->m_equipements[i].data.m_switch;
+            for (j = 0; j < s->nbport; j++) {
+                p = &s->ports[j];
+                if (p->etat != BLOQUE) {
+                    if (p->port_designe == false) {
+                        p->etat = BLOQUE;
+                    }
+                }
+            }
+        }
     }
-    printf("\n");
-*/
-    return 0;
-
-
 }
