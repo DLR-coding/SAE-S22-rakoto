@@ -1,5 +1,6 @@
 #include "s22.h"
-#include "./graph.h"
+#include "./graphe.h"
+#include "./algos.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -39,7 +40,7 @@ int main() {
     // Libérer la mémoire allouée pour les équipements et la structure de graphe
     free(r.m_equipements);
     free_graphe(&r.m_graphe);
-        */
+        
 
        // Créer un switch avec 4 ports et une capacité de table de commutation de 2 entrées
     MACAddress mac = {{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}};
@@ -56,6 +57,22 @@ int main() {
 
     // Afficher la table de commutation du switch
     printSwitchTable(&sw);
+*/
+    srand(time(NULL));
 
-    return 0;
+    graphe g;
+    init_graphe(&g);
+
+    printf("AFFICHER GRAPHE\n");
+    printf("===============\n");
+    ajouter_sommet(&g);
+    ajouter_sommet(&g);
+
+    arete a = {0,1};
+    ajouter_arete(&g ,a);
+    afficher(&g);
+
+    free_graphe(&g);
+
+    return EXIT_SUCCESS;
 }

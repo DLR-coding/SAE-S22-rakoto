@@ -1,4 +1,4 @@
-#include "graph.h"
+#include "graphe.h"
 
 void init_graphe(graphe *g)
 {
@@ -44,6 +44,16 @@ void ajouter_sommet(graphe *g)
 
 // une fonction locale "static arete swap_sommets(arete a)" pourra être utile
 // cette fonction retourne une nouvelle arête dont les sommets sont les même que l'arête reçue mais inversés
+static arete swap_sommets(arete a)
+{
+    arete nv = { 
+        .s1 = a.s2, 
+        .s2 = a.s1
+        };
+    return nv;
+
+}
+
 bool existe_arete(graphe const *g, arete a)
 {
     // retourne true si l'arête a est contenue dans le graphe g, false sinon
@@ -116,20 +126,8 @@ size_t sommets_adjacents(graphe const *g, sommet s, sommet sa[])
     // (on suppose que s fait bien partie du graphe g)
     // (le tableau sa est supposé assez grand pour contenir les sommets adjacents de s)
 
-    int nbsommet;
-    /*
-    int i = 0; 
-    bool present = false;    
-    while (present == false && i < g->nb_aretes)
-    {
-        if (s == g->aretes[i].s1 || s == g->aretes[i].s2) 
-        {
-            present = true ;
-        }        
-        i++;
-    }
-    */
-
+    int nbsommet = 0;
+    //printf("sommet adjacents : %d\n",g->nb_aretes);
    for (int i = 0; i < g->nb_aretes; i++)
    {
         if (s == g->aretes[i].s1 ) 

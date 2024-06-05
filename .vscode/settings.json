@@ -4,6 +4,8 @@
         "graph.h": "c",
         "stdbool.h": "c",
         "stdio.h": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "*.tcc": "c",
+        "algorithm": "c"
     }
 }

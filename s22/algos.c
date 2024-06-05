@@ -34,7 +34,7 @@ bool est_regulier(graphe const *g)
 void afficher(graphe const *g)
 {
     size_t nbsommets = g->ordre;
-    printf("sommets = %d \n", nbsommets );
+    printf("sommets = %ld \n", nbsommets );
     printf("arêtes = %d \n", g->nb_aretes );
     printf("--SOMMETS-- \n");
 
@@ -56,7 +56,7 @@ void afficher(graphe const *g)
     // pour chaque arête, on affiche ses deux sommets
     for (size_t i = 0; i < g->nb_aretes; i++) {
         arete const *a = &(g->aretes[i]);
-        printf("%d - %d\n", a->s1, a->s2);
+        printf("%ld - %ld\n", a->s1, a->s2);
     }
 }
 
