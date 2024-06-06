@@ -65,7 +65,7 @@ typedef struct trame_ethernet{
     MACAddress destination_mac;
     MACAddress source_mac;
     uint16_t type;
-    uint8_t data[1500]; //uint8_t* data ?
+    uint8_t data[1500];
     uint32_t fcs;
 } trame_ethernet;
 
@@ -204,52 +204,6 @@ void printReseau(reseau r)
        
 }
 
-
-// Fonction pour calculer les informations sur le réseau
-void addnet(IPAddress ip, IPAddress mask) 
-{
-    // Calcul du masque de bits
-    uint32_t subnetMask = (mask.octet[0] << 24) | (mask.octet[1] << 16) | (mask.octet[2] << 8) | mask.octet[3];
-    
-    // Adresse réseau = IP & masque de sous-réseau
-    uint32_t networkAddress = (ip.octet[0] << 24) | (ip.octet[1] << 16) | (ip.octet[2] << 8) | ip.octet[3];
-    networkAddress &= subnetMask;
-
-    // Adresse de broadcast = adresse réseau | inverse du masque
-    uint32_t broadcastAddress = networkAddress | ~subnetMask;
-
-    // Nombre d'adresses adressables = (2^(nombre de bits dans l'adresse) - 2)
-    uint32_t numHosts = (~subnetMask) - 1;
-        //test
-    // Affichage des résultats
-    printf("Classe du reseau: ");
-    if (ip.octet[0] < 128) {
-        printf("A\n");
-    } else if (ip.octet[0] < 192) {
-        printf("B\n");
-    } else if (ip.octet[0] < 224) {
-        printf("C\n");
-    } else if (ip.octet[0] < 240) {
-        printf("D (multicast)\n");
-    } else {
-        printf("E (expérimentale)\n");
-    }
-
-    printf("Adresse du reseau: ");
-    printIPAddress((IPAddress){.octet = {networkAddress >> 24, (networkAddress >> 16) & 0xFF, (networkAddress >> 8) & 0xFF, networkAddress & 0xFF}});
-    printf("\n");
-
-    printf("Adresse de la station: ");
-    printIPAddress(ip);
-    printf("\n");
-
-    printf("Adresse de broadcast: ");
-    printIPAddress((IPAddress){.octet = {broadcastAddress >> 24, (broadcastAddress >> 16) & 0xFF, (broadcastAddress >> 8) & 0xFF, broadcastAddress & 0xFF}});
-    printf("\n");
-
-    printf("Nombre de machines adressables dans le sous-reseau: %u\n", numHosts);
-}
-
 //Partie 2
 bool lire_config(const char *nomFichier, reseau *r) {
     FILE *fp = fopen(nomFichier, "r");
@@ -328,8 +282,103 @@ bool lire_config(const char *nomFichier, reseau *r) {
     return true;
 }
 
-int main() {
+///////// Partie 3
 
+// transfer de trame : 
+
+
+//parcourt la table de commutation du switch 
+///et vérifie si l'adresse MAC de destination correspond à une entrée dans la table. 
+//Si c'est le cas, elle retourne le numéro de port correspondant à l'entrée. 
+//Si l'adresse MAC de destination ne se trouve pas dans la table, elle retourne -1
+
+int trouver_port_station(Switch *sw, MACAddress mac_dest) {
+    // Parcourir la table de commutation du switch
+    for (int i = 0; i < sw->table.nb_entrees; i++) {
+        switchTableEntry *entree = &(sw->table.entrees[i]);
+        // Vérifier si l'adresse MAC de destination correspond à entree 
+        if (memcmp(entree->m_macAddress, mac_dest, 6) == 0) {
+            // Retourner le numéro de port correspondant à l'entrée
+            return entree->m_port;
+        }
+    }
+    // Si l'adresse MAC de destination ne se trouve pas dans la table, retourner -1
+    return -1;
+}
+
+//switch envoyer tram à switch. utiliser quand switch --> equipement
+void envoyer_trame(Switch* sw, trame_ethernet* trame, int port_dest) 
+{
+    // Vérifier que le port de destination est valide
+    if (port_dest < 1 || port_dest > sw->nbport) {
+        printf("Erreur : le port de destination %d est invalide\n", port_dest);
+        return;
+    }
+
+    // Envoyer la trame sur le port de destination
+    printf("Envoi de la trame sur le port %d :\n", port_dest);
+    afficher_trame_ethernet(*trame);
+
+    
+    // Mettre à jour la table de commutation du switch si nécessaire
+    MACAddress mac_source = trame->source_mac;
+    MACAddress mac_dest = trame->destination_mac;
+    int port_source = trouver_port_station(sw, mac_source);
+    if (port_source != -1) {
+        // La trame a été envoyée par une station connectée au switch, mettre à jour la table de commutation
+        addSwitchTableEntry(sw, mac_dest, port_dest);
+    } 
+    
+}
+
+//switch recois trame d'une station. utiliser quand stations --> switch
+void recevoirTrame(Switch* sw, trame_ethernet* trame, int port) {
+    printf("trame recu au port %d\n", port);
+    // Vérifier si la trame est destinée à une station connectée au switch
+    MACAddress mac_dest = trame->destination_mac;
+    int port_dest = trouver_port_station(sw, mac_dest); //trouver le port qui mène au MAC destinataire (-1 s'il trv pas)
+
+    if (port_dest != -1) {
+        // transferer la trame vers le port de la station destinataire
+        printf("Réémission de la trame sur le port %d => vers la station destinataire\n", port_dest);
+        envoyer_trame(sw, trame, port_dest);
+    } else {
+        // BROADCAST. sauf celui d'où elle a été reçue
+        printf("BROADCAST trame sur tous les ports sauf le port %d\n", port);
+        for (int i = 1; i <= sw->nbport; i++) {
+            if (i != port) {
+                envoyer_trame(sw, trame, i);
+            }
+        }
+    }
+
+    // Mettre à jour la table de commutation du switch
+    MACAddress mac_src = trame->source_mac;
+    addSwitchTableEntry(sw, mac_src, port);
+}
+
+
+
+/// Partie 4
+bool stp(reseau *r)
+{
+    un switch a nbports : 
+        switch 1: 
+            ports[nbports]
+            etat_ports[nbports]
+            port[1] --> etat_ports[1]            
+    
+   
+    // election switch racine
+    for (size_t i = 0; i < r->nb_equipements; i++)
+    {
+        
+    }
+    
+   return false;
+}
+int main() {
+    /*
     //PARTIE 2    
     // Créer une structure de réseau vide
     reseau r;
@@ -350,7 +399,9 @@ int main() {
     // Libérer la mémoire allouée pour les équipements et la structure de graphe
     free(r.m_equipements);
     free_graphe(&r.m_graphe);
+    */
 
+   ""
 
 
     return 0;

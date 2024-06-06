@@ -281,17 +281,181 @@ void free_reseau(reseau *r) {
     free_graphe(&r->m_graphe);
 }
 
-int main() {
 
-    //PARTIE 2    
-    // Créer une structure de réseau vide
+// PARTIE 3
+
+void init_trame(trame_ethernet *trame , MACAddress MAC_src, MACAddress MAC_dest , const char *message)
+{
+    /*  
+    Le champ preambule est initialisé avec la valeur 0x55, qui est la valeur binaire 01010101. 
+    Le champ sfd est initialisé avec la valeur 0xD5, qui est la valeur hexadécimale 11010101. 
+    Le champ type est initialisé avec la valeur 0x0800, qui est le type IP par défaut. 
+    Le champ data est initialisé avec le message spécifié, en utilisant la fonction strncpy pour copier les caractères du message dans le tableau data. 
+    Le champ fcs est initialisé avec la valeur 0, car on s'en fou du fcs
+    */
+
+    // Initialiser les champs de la trame
+    memset(trame->preambule, 0x55, sizeof(trame->preambule));
+    trame->sfd = 0xD5;
+    trame->destination_mac = MAC_dest;
+    trame->source_mac = MAC_src;
+    trame->type = 0x0800; // Type IP par défaut
+    memset(trame->data, 0, sizeof(trame->data));
+    strncpy((char *)trame->data, message, sizeof(trame->data));
+    trame->fcs = 0; // Calcul du FCS non implémenté
+}
+
+
+
+
+bool compare_mac(MACAddress mac1, MACAddress mac2) {
+    return memcmp(mac1.octets, mac2.octets, sizeof(mac1.octets)) == 0;
+}
+equipement *get_equipement_by_mac(reseau *r, MACAddress mac) {
+    for (size_t i = 0; i < r->nb_equipements; i++) {
+        if (r->m_equipements[i].type == STATION &&
+            compare_mac(r->m_equipements[i].data.m_station.m_adresseMac, mac)) {
+            return &r->m_equipements[i];
+        } else if (r->m_equipements[i].type == SWITCH &&
+                   compare_mac(r->m_equipements[i].data.m_switch.mac, mac)) {
+            return &r->m_equipements[i];
+        }
+    }
+    return NULL;
+}
+
+
+void transferer_trame(reseau *r, equipement *current, equipement *destination, trame_ethernet *trame) 
+{
+    if (destination->type == STATION) {
+        equipement *dst = get_equipement_by_mac(r, destination->data.m_station.m_adresseMac); // j'utilise sa pour l'affichage
+        if (compare_mac(destination->data.m_station.m_adresseMac, trame->destination_mac)) {
+            equipement *src = get_equipement_by_mac(r, trame->source_mac);            
+            printf("Je suis Equipement %ld du réseau, j'ai reçu le message de Equipement %ld : \"%s\"\n",
+                   (dst - r->m_equipements) , (src - r->m_equipements), trame->data);
+            //MAJ TableCommut
+            if (current->type == SWITCH)
+            {
+                Switch *sw = &current->data.m_switch;
+                bool dest_found = false;
+                //Si la station est déjà dans la tableCommut --> ne rien faire
+                for (int k = 0; k < sw->table.nb_entrees; k++) {
+                    if (compare_mac(sw->table.entrees[k].m_macAddress, trame->destination_mac)) {
+                        dest_found = true;
+                        break;
+                    }
+                }
+                //Si la station est pas dans la tableCommut --> 
+                if (!dest_found) {
+                    // Trouver le port correspondant à la station de destination (je dit que port = numEquipement c pas opti jpense mais c ce que je pense là)
+                    int dest_port = -1;
+                    for (size_t i = 0; i < r->m_graphe.nb_aretes; i++) {
+                        if (r->m_graphe.aretes[i].s1 == destination - r->m_equipements ||
+                            r->m_graphe.aretes[i].s2 == destination - r->m_equipements) 
+                        {
+                            if (r->m_graphe.aretes[i].s1 == current - r->m_equipements) {
+                                dest_port = r->m_graphe.aretes[i].s2;
+                            } else {
+                                dest_port = r->m_graphe.aretes[i].s1;
+                            }
+                            break;
+                        }
+                    }
+                    if (dest_port != -1) {
+                        addSwitchTableEntry(sw, trame->destination_mac, dest_port);
+                    }
+                }
+            }
+            
+        } else {
+            printf("Je suis Equipement %ld, le message n'est pas pour moi\n", (dst - r->m_equipements));
+        }
+    } else if (destination->type == SWITCH) {
+        Switch *sw = &destination->data.m_switch;
+        bool dest_found = false;
+
+        // regarde dans CommutTable si Mac_Dest est connue
+        for (int k = 0; k < sw->table.nb_entrees; k++) {
+            if (compare_mac(sw->table.entrees[k].m_macAddress, trame->destination_mac)) {
+                //si c vu dans la tableCOmmut --> transfert vers le MAC connue
+                dest_found = true;
+                equipement *dest = get_equipement_by_mac(r, sw->table.entrees[k].m_macAddress);
+                transferer_trame(r, destination, dest, trame);
+                break;
+            }
+        }
+
+        //si finalement c'est pas connu dans la table de commut
+        if (!dest_found) {
+            // BROADCAST (sauf vers sommet source)
+            sommet *sommets_adjs = malloc(sw->nbport * sizeof(sommet)); //nbport*sommet --> c pas un prlbm nn ?
+            int nb_adj = sommets_adjacents(&r->m_graphe, destination - r->m_equipements, sommets_adjs);
+
+            for (size_t i = 0; i < nb_adj; i++) {
+                equipement *new_dest = &r->m_equipements[sommets_adjs[i]];
+                if (new_dest != current) {
+                    transferer_trame(r, destination, new_dest, trame);
+                }
+            }
+            // update des tableCommut
+            for (size_t i = 0; i < nb_adj; i++) {
+                equipement *new_dest = &r->m_equipements[sommets_adjs[i]];
+                if (new_dest != current && new_dest->type == SWITCH) {
+                    Switch *sw = &new_dest->data.m_switch;
+                    bool src_found = false;
+                    for (int k = 0; k < sw->table.nb_entrees; k++) {
+                        if (compare_mac(sw->table.entrees[k].m_macAddress, trame->source_mac)) {
+                            src_found = true;
+                            break;
+                        }
+                    }
+                    if (!src_found) {
+                        addSwitchTableEntry(sw, trame->source_mac, sommets_adjs[i]);
+                    }
+                }
+            }
+            free(sommets_adjs);
+        }
+    }
+}
+
+//Est ce que ce serait mieux d'avoir les MAC directmeent en paramètre ou les eqt
+void envoyer_trame(reseau *r, equipement *eqt1, equipement *eqt2, const char *message) {
+    // Créer une nouvelle trame Ethernet
+    trame_ethernet trame;
+
+    // Initialiser la trame avec les adresses MAC des équipements et le message
+    init_trame(&trame, eqt1->data.m_station.m_adresseMac, eqt2->data.m_station.m_adresseMac, message);
+
+    // Simuler l'envoi de la trame en appelant la fonction transferer_trame
+    transferer_trame(r, eqt1, eqt2, &trame);
+}
+
+
+
+
+
+
+
+int main() {
+    
     reseau r;
     init_reseau(&r);
-
     lire_config("reseau_config.txt", &r);
     printReseau(&r);
+    equipement st1 = r.m_equipements[1];
+    equipement st2 = r.m_equipements[2];
+    equipement st3 = r.m_equipements[3];
 
-    free_reseau(&r);
+
+    // Envoyer une trame de la station 1 à la station 2
+    envoyer_trame(&r, &st1, &st2, "Hello, st2 from st1!");
+
+    // Envoyer une trame de la station 2 à la station 3
+    envoyer_trame(&r, &st2, &st3, "Hello, st3 from st2!");
+    // Libérer la mémoire allouée pour le réseau
+    free(r.m_equipements);
+    free_graphe(&r.m_graphe);
 
     return 0;
     
