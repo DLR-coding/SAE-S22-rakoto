@@ -125,10 +125,8 @@ void printIPAddress(IPAddress ip) {
 
 // Fonction pour afficher une adresse Mac
 void printMACAddress(MACAddress mac) {
-    printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
-           mac.octets[0], mac.octets[1], mac.octets[2],
-           mac.octets[3], mac.octets[4], mac.octets[5]);
-
+    printf("%02x:%02x:%02x:%02x:%02x:%02x\n", mac.octets[0], mac.octets[1], mac.octets[2],
+                                                mac.octets[3], mac.octets[4], mac.octets[5]);
 }
 
 
@@ -329,7 +327,6 @@ equipement *get_equipement_by_mac(reseau *r, MACAddress mac) {
 
 void transferer_trame(reseau *r, equipement *current, equipement *destination, trame_ethernet *trame) 
 {
-
     if (destination->type == STATION) {
         equipement *dst = get_equipement_by_mac(r, destination->data.m_station.m_adresseMac); // j'utilise sa pour l'affichage
         if (compare_mac(destination->data.m_station.m_adresseMac, trame->destination_mac)) {
@@ -417,41 +414,20 @@ void transferer_trame(reseau *r, equipement *current, equipement *destination, t
                             
                 free(sommets_adjs);
             }
-        }
-
-        
+        } 
     }
 }
 
 //Est ce que ce serait mieux d'avoir les MAC directmeent en paramètre ou les eqt
-void envoyer_trame(reseau *r, equipement *sourbce, equipement *destination, trame_ethernet *trame) 
-{
-    
+void envoyer_trame(reseau *r, equipement *eqt1, equipement *eqt2, const char *message) {
+    // Créer une nouvelle trame Ethernet
+    trame_ethernet trame;
 
-    // Vérifier si la destination est un sommet adjacent de la source
-    sommet *sommets_adj = malloc(r->m_graphe.ordre * sizeof(sommet));
-    int nb_adj = sommets_adjacents(&r->m_graphe, source - r->m_equipements, sommets_adj);
-    bool dest_adj = false;
-    for (int i = 0; i < nb_adj; i++) {
-        if (compare_mac(r->m_equipements[sommets_adj[i] -1 ].data.m_station.m_adresseMac, destination->data.m_station.m_adresseMac)) {
-            dest_adj = true;
-            break;
-        }
-    }
+    // Initialiser la trame avec les adresses MAC des équipements et le message
+    init_trame(&trame, eqt1->data.m_station.m_adresseMac, eqt2->data.m_station.m_adresseMac, message);
 
-    if (dest_adj) {
-        // La destination est un sommet adjacent de la source, transférer la trame directement
-        transferer_trame(r, source, destination, &trame);
-    } 
-    else {
-        // La destination n'est pas un sommet adjacent de la source, transférer la trame à chaque sommet adjacent
-        for (int i = 0; i < nb_adj; i++) {
-            transferer_trame(r, source, &r->m_equipements[sommets_adj[i] - 1], &trame);
-        }
-    }
-
-    free(sommets_adj);
-
+    // Simuler l'envoi de la trame en appelant la fonction transferer_trame
+    transferer_trame(r, eqt1, eqt2, &trame);
 }
 
 
@@ -479,7 +455,6 @@ int main() {
     if (st1.type == STATION)
     {
         printf("st1 : STATION\n");
-
     }
     else
     {
@@ -489,33 +464,12 @@ int main() {
     equipement st2 = r.m_equipements[2];
     equipement st3 = r.m_equipements[3];
 
-    equipement stTest = r.m_equipements[r.m_graphe.ordre -1 ];
-    if (stTest.type == STATION)
-    {
-        printf("stTest : STATION\n");
-        printMACAddress(stTest.data.m_station.m_adresseMac);
 
-    }
-    else
-    {
-        printf("stTest : SWITCH\n");
-        printMACAddress(stTest.data.m_switch.mac);
-    }
-    
-    trame_ethernet trame;
-    init_trame(&trame, st1.data.m_station.m_adresseMac, st2.data.m_station.m_adresseMac, "Hello, st2 from st1!");
     // Envoyer une trame de la station 1 à la station 2
-    envoyer_trame(&r, &trame);
+    envoyer_trame(&r, &st1, &st2, "Hello, st2 from st1!");
 
     // Envoyer une trame de la station 2 à la station 3
-
-    trame_ethernet trame2;
-    init_trame(&trame2, st1.data.m_station.m_adresseMac, st2.data.m_station.m_adresseMac, "Hello, st3 from st2!");
-    // Envoyer une trame de la station 1 à la station 2
-    envoyer_trame(&r, &st1, &st2,&trame2);
-
-
-
+    envoyer_trame(&r, &st2, &st3, "Hello, st3 from st2!");
     // Libérer la mémoire allouée pour le réseau
     free(r.m_equipements);
     free_graphe(&r.m_graphe);

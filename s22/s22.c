@@ -116,7 +116,21 @@ void init_reseau(reseau *r) {
     r->nb_equipements = 0;
 }
 
+// pour 1 sommet, on affiche ses voisins
+void print_sommets_adj(graphe const *g , sommet i )
+{
+        printf("%d (degré: %d) <-> ", i, degre(g, i));
+        sommet *sa = malloc(g->ordre * sizeof(sommet));
+        size_t d = sommets_adjacents(g, i, sa);
+        for (size_t j = 0; j < d; j++) 
+        {
+            printf("%d ", sa[j]);
+        }
+        free(sa);
+        printf("\n");
+}
 
+    
 // Fonction pour afficher une adresse IP
 void printIPAddress(IPAddress ip) {
     printf("%d.%d.%d.%d", ip.octet[0], ip.octet[1],ip.octet[2], ip.octet[3]);
@@ -292,6 +306,7 @@ bool lire_config(const char *nomFichier, reseau *r) {
 //Si c'est le cas, elle retourne le numéro de port correspondant à l'entrée. 
 //Si l'adresse MAC de destination ne se trouve pas dans la table, elle retourne -1
 
+/*
 int trouver_port_station(Switch *sw, MACAddress mac_dest) {
     // Parcourir la table de commutation du switch
     for (int i = 0; i < sw->table.nb_entrees; i++) {
@@ -305,6 +320,7 @@ int trouver_port_station(Switch *sw, MACAddress mac_dest) {
     // Si l'adresse MAC de destination ne se trouve pas dans la table, retourner -1
     return -1;
 }
+*/
 
 //switch envoyer tram à switch. utiliser quand switch --> equipement
 void envoyer_trame(Switch* sw, trame_ethernet* trame, int port_dest) 
@@ -362,6 +378,7 @@ void recevoirTrame(Switch* sw, trame_ethernet* trame, int port) {
 /// Partie 4
 bool stp(reseau *r)
 {
+    /*
     un switch a nbports : 
         switch 1: 
             ports[nbports]
@@ -376,7 +393,9 @@ bool stp(reseau *r)
     }
     
    return false;
+   */
 }
+
 int main() {
     /*
     //PARTIE 2    
@@ -401,7 +420,7 @@ int main() {
     free_graphe(&r.m_graphe);
     */
 
-   ""
+   
 
 
     return 0;
