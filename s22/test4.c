@@ -642,6 +642,8 @@ void envoi_trame(reseau *r, equipement *stationsource, trame_ethernet *trame) {
 /// Partie 4
 
 
+
+
 int main() {
     reseau r;
     // Initialiser le réseau à partir du fichier de configuration
