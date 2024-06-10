@@ -511,33 +511,7 @@ void print_trame_ethernet_hex(trame_ethernet trame) {
 
 
 
-bool compare_mac(MACAddress mac1, MACAddress mac2) {$
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+bool compare_mac(MACAddress mac1, MACAddress mac2) {
     return memcmp(mac1.octets, mac2.octets, sizeof(mac1.octets)) == 0;
 }
 
