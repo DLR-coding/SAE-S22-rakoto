@@ -6,6 +6,7 @@
         "stdio.h": "c",
         "time.h": "c",
         "*.tcc": "c",
-        "algorithm": "c"
+        "algorithm": "c",
+        "system_error": "c"
     }
 }

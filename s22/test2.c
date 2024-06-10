@@ -72,6 +72,17 @@ typedef struct trame_ethernet{
 
 ///////////////////////////
 
+void init_station(station *station, IPAddress ip, MACAddress mac) {
+    station->m_adresseIP = ip;
+    station->m_adresseMac = mac;
+}
+
+void init_table_de_commutation(TableDeCommutation *table, int capacite) {
+    table->capacite = capacite;
+    table->nb_entrees = 0;
+    table->entrees = (switchTableEntry*)malloc(sizeof(switchTableEntry) * capacite);
+}
+
 // pour crer un switch 
 void initSwitch(Switch *sw, MACAddress MAC, int nbport, int priorite, int capacite) {
     sw->mac = MAC;
@@ -79,13 +90,7 @@ void initSwitch(Switch *sw, MACAddress MAC, int nbport, int priorite, int capaci
     sw->priorite = priorite;
 
     // Initialiser la table de commutation
-    sw->table.capacite = capacite;
-    sw->table.nb_entrees = 0;
-    sw->table.entrees = malloc(capacite * sizeof(switchTableEntry));
-    if (sw->table.entrees == NULL) {
-        // Gérer l'erreur d'allocation mémoire
-        exit(EXIT_FAILURE);
-    }
+    init_table_de_commutation(&sw->table, capacite);
 }
 
 //pr ajouter une entrée
@@ -124,12 +129,24 @@ void printIPAddress(IPAddress ip) {
 
 
 // Fonction pour afficher une adresse Mac
-void printMACAddress(MACAddress mac) {
-    printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
-           mac.octets[0], mac.octets[1], mac.octets[2],
-           mac.octets[3], mac.octets[4], mac.octets[5]);
-
+void print_mac(MACAddress mac) {
+    for (int i = 0; i < 6; i++) 
+    {
+        printf("%02x", mac.octets[i]);
+        if (i < 5) printf(":");
+    }
 }
+
+//print un station
+void print_station(station *station) {
+    printf("Station:\n");
+    printf("  IP Address: ");
+    print_ip(station->m_adresseIP);
+    printf("\n  MAC Address: ");
+    print_mac(station->m_adresseMac);
+    printf("\n");
+}
+
 
 
 // Fonction pour afficher la table de commutation d'un switch
@@ -424,31 +441,26 @@ void transferer_trame(reseau *r, equipement *current, equipement *destination, t
 }
 
 //Est ce que ce serait mieux d'avoir les MAC directmeent en paramètre ou les eqt
-void envoyer_trame(reseau *r, equipement *sourbce, equipement *destination, trame_ethernet *trame) 
+void envoyer_trame(reseau *r, equipement *source, equipement *destination, trame_ethernet *trame) 
 {
     
 
     // Vérifier si la destination est un sommet adjacent de la source
     sommet *sommets_adj = malloc(r->m_graphe.ordre * sizeof(sommet));
-    int nb_adj = sommets_adjacents(&r->m_graphe, source - r->m_equipements, sommets_adj);
-    bool dest_adj = false;
+    int nb_adj = sommets_adjacents(&r->m_graphe , source - r->m_equipements, sommets_adj);
+    /*bool dest_adj = false;
     for (int i = 0; i < nb_adj; i++) {
         if (compare_mac(r->m_equipements[sommets_adj[i] -1 ].data.m_station.m_adresseMac, destination->data.m_station.m_adresseMac)) {
             dest_adj = true;
             break;
         }
-    }
-
-    if (dest_adj) {
-        // La destination est un sommet adjacent de la source, transférer la trame directement
-        transferer_trame(r, source, destination, &trame);
-    } 
-    else {
+    }*/
         // La destination n'est pas un sommet adjacent de la source, transférer la trame à chaque sommet adjacent
-        for (int i = 0; i < nb_adj; i++) {
-            transferer_trame(r, source, &r->m_equipements[sommets_adj[i] - 1], &trame);
-        }
+    for (int i = 0; i < nb_adj; i++) {
+        printf("Trame_MACsrc --> sommet_adj (switch)");
+        transferer_trame(r, source, &r->m_equipements[sommets_adj[i] - 1], trame);
     }
+    
 
     free(sommets_adj);
 
@@ -505,7 +517,7 @@ int main() {
     trame_ethernet trame;
     init_trame(&trame, st1.data.m_station.m_adresseMac, st2.data.m_station.m_adresseMac, "Hello, st2 from st1!");
     // Envoyer une trame de la station 1 à la station 2
-    envoyer_trame(&r, &trame);
+    envoyer_trame(&r,&st1,&st2 ,&trame);
 
     // Envoyer une trame de la station 2 à la station 3
 

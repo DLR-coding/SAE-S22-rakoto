@@ -56,7 +56,7 @@ void afficher(graphe const *g)
     // pour chaque arête, on affiche ses deux sommets
     for (size_t i = 0; i < g->nb_aretes; i++) {
         arete const *a = &(g->aretes[i]);
-        printf("%ld - %ld\n", a->s1, a->s2);
+        printf("%ld - %ld : poid %.2f\n", a->s1, a->s2 , a->poids);
     }
 }
 
@@ -179,78 +179,175 @@ bool sont_connectes(graphe const *g, sommet s1, sommet s2)
     return false;
 }
 
-void coloriage_glouton(graphe const *g, uint8_t *couleur_sommet)
+void coloriage_glouton(graphe const *g, uint8_t *couleur_sommet) 
 {
-    // initialisation
-    size_t nb_sommets = g->ordre;
-    int max = 255;
+    // Initialiser toutes les couleurs à 255 (non-colorié)
+    for (size_t i = 0; i < g->ordre; ++i) {
+        couleur_sommet[i] = 255;
+    }
+
     uint8_t couleur_max = 0;
-    for (size_t i = 0; i < nb_sommets; i++) {
-        couleur_sommet[i] = max; // marqueur pour "pas encore colorié"
-    }
 
-    // traitement des sommets dans l'ordre
-    for (sommet s = 0; s < nb_sommets; s++) {
-        if (couleur_sommet[s] == max) { 
-            // if sommet pas encore colorié
-            // cherche de la plus petite couleur disponible
-            bool *colors = malloc(sizeof(bool) * (couleur_max + 1));
-            for (size_t i = 0; i <= couleur_max; i++) {
-                colors[i] = false;
-            }
-            sommet sa[nb_sommets];
-            size_t nb_voisins = sommets_adjacents(g, s, sa);
-            for (size_t i = 0; i < nb_voisins; i++) //met les voisins déjà colorié à true
-            {
-                sommet voisin = sa[i];
-                if (couleur_sommet[voisin] != max) { // si le voisin est déjà colorié
-                    colors[couleur_sommet[voisin]] = true;
-                }
-            }
-            size_t couleur_s = 0;
-            while (colors[couleur_s]) {
-                couleur_s++;
-            }
-            if (couleur_s > couleur_max) {
-                couleur_max = couleur_s;
-            }
-            couleur_sommet[s] = couleur_s;
-
-            free(colors);
+    for (size_t s = 0; s < g->ordre; ++s) {
+        // Créer un tableau pour marquer les couleurs utilisées par les voisins
+        bool *couleurs_utilisees = calloc(couleur_max + 1, sizeof(bool));
+        if (!couleurs_utilisees) {
+            fprintf(stderr, "Erreur d'allocation de mémoire pour couleurs_utilisees\n");
+            return;
         }
+
+        // Marquer les couleurs utilisées par les voisins
+        for (size_t i = 0; i < g->nb_aretes; ++i) {
+            if (g->aretes[i].s1 == s && couleur_sommet[g->aretes[i].s2] != 255) {
+                couleurs_utilisees[couleur_sommet[g->aretes[i].s2]] = true;
+            } else if (g->aretes[i].s2 == s && couleur_sommet[g->aretes[i].s1] != 255) {
+                couleurs_utilisees[couleur_sommet[g->aretes[i].s1]] = true;
+            }
+        }
+
+        // Trouver la plus petite couleur non utilisée
+        uint8_t couleur = 0;
+        while (couleur <= couleur_max && couleurs_utilisees[couleur]) {
+            ++couleur;
+        }
+
+        // Assigner cette couleur au sommet
+        couleur_sommet[s] = couleur;
+
+        // Mettre à jour la couleur maximale utilisée
+        if (couleur == couleur_max + 1) {
+            ++couleur_max;
+        }
+
+        free(couleurs_utilisees);
     }
-    
-    
 }
 
-void appliquer_permutation(graphe const *src, graphe *dst, size_t const *permutation)
-{
-    /*
-    dst->ordre = src->ordre;
-    arete a = {
-        .s1 = src->aretes[i],
-        .s2 = src->aretes[i]
-    };
-    dst->
-    */
 
+void appliquer_permutation(graphe const *src, graphe *dst, size_t const *permutation) 
+{ 
+ for (size_t i=0;i<src->ordre;i++){ 
+  ajouter_sommet(dst);  
+ } 
+   for (size_t i = 0; i < src->nb_aretes; ++i) { 
+       sommet nouveau_s1 = permutation[src->aretes[i].s1]; 
+       sommet nouveau_s2 = permutation[src->aretes[i].s2]; 
+       arete a = {nouveau_s1, nouveau_s2, src->aretes[i].poids}; 
+       ajouter_arete(dst, a); 
+ } 
 }
 
-uint32_t estimation_nb_chromatique(graphe const *g, uint32_t n)
-{
-    return 0;
+uint32_t estimation_nb_chromatique(graphe const *g, uint32_t n) 
+{ 
+   uint32_t min_couleurs = g->ordre;  // Initialiser à un maximum possible de couleurs 
+   size_t *permutation = malloc(g->ordre * sizeof(size_t)); 
+   uint8_t *couleur_sommet = malloc(g->ordre * sizeof(uint8_t)); 
+   graphe g_permuted; 
+
+   for (uint32_t i = 0; i < n; i++) { 
+       generer_permutation(permutation, g->ordre); 
+       appliquer_permutation(g, &g_permuted, permutation); 
+
+       coloriage_glouton(&g_permuted, couleur_sommet); 
+
+       uint8_t max_couleur = 0; 
+       for (size_t j = 0; j < g->ordre; j++) { 
+           if (couleur_sommet[j] > max_couleur) { 
+               max_couleur = couleur_sommet[j]; 
+           } 
+       } 
+
+       if (max_couleur + 1 < min_couleurs) { 
+           min_couleurs = max_couleur + 1; 
+       } 
+
+       free(g_permuted.aretes); 
+   } 
+
+   free(permutation); 
+   free(couleur_sommet); 
+
+   return min_couleurs; 
+} 
+
+void generer_aleatoire(graphe *g, size_t ordre, uint32_t k) 
+{ 
+ for (size_t i = 0;i<ordre; i++){ 
+   ajouter_sommet(g); 
+ } 
+
+   for (size_t i = 0; i < ordre; ++i) { 
+       for (size_t j = i + 1; j < ordre; ++j) { 
+           if (rand() % k == 0) { 
+               arete a = {i, j}; 
+               ajouter_arete(g, a); 
+           } 
+       } 
+   } 
+}
+void dijkstra(graphe const *g, sommet s, double const *poids_arete, double *distance_sommet) 
+{ 
+ bool* visited = calloc(g->ordre, sizeof(bool)); 
+   for (size_t i = 0; i < g->ordre; ++i) { 
+       distance_sommet[i] = DBL_MAX; 
+   } 
+   distance_sommet[s] = 0; 
+
+   for (size_t i = 0; i < g->ordre; ++i) { 
+       double min_distance = DBL_MAX; 
+       size_t u = -1; 
+       for (size_t j = 0; j < g->ordre; ++j) { 
+           if (!visited[j] && distance_sommet[j] < min_distance) { 
+               min_distance = distance_sommet[j]; 
+               u = j; 
+           } 
+       } 
+
+       if (u == -1) break; 
+
+       visited[u] = true; 
+       for (size_t j = 0; j < g->nb_aretes; ++j) { 
+           if (g->aretes[j].s1 == u || g->aretes[j].s2 == u) { 
+               size_t v = (g->aretes[j].s1 == u) ? g->aretes[j].s2 : g->aretes[j].s1; 
+               if (!visited[v] && distance_sommet[u] + poids_arete[j] < distance_sommet[v]) { 
+                   distance_sommet[v] = distance_sommet[u] + poids_arete[j]; 
+               } 
+           } 
+       } 
+   } 
+
+   free(visited); 
 }
 
-void generer_aleatoire(graphe *g, size_t ordre, uint32_t k)
-{
-}
+void trier_aretes(arete *aretes_triees, graphe const *g, double const *poids_arete) 
+{ 
+   // Copier les arêtes dans aretes_triees 
+   for (size_t i = 0; i < g->nb_aretes; ++i) { 
+       aretes_triees[i] = g->aretes[i]; 
+   } 
 
-void dijkstra(graphe const *g, sommet s, double const *poids_arete, double *distance_sommet)
-{
-}
+   // Tableau auxiliaire pour les poids des arêtes 
+   double *poids_aux = malloc(g->nb_aretes * sizeof(double)); 
+   for (size_t i = 0; i < g->nb_aretes; ++i) { 
+       poids_aux[i] = poids_arete[i]; 
+   } 
 
-void trier_aretes(arete *aretes_triees, graphe const *g, double const *poids_arete)
-{
+   // Tri par insertion basé sur les poids des arêtes 
+   for (size_t i = 1; i < g->nb_aretes; ++i) { 
+       arete key = aretes_triees[i]; 
+       double key_weight = poids_aux[i]; 
+       size_t j = i; 
+       while (j > 0 && poids_aux[j - 1] > key_weight) { 
+           aretes_triees[j] = aretes_triees[j - 1]; 
+           poids_aux[j] = poids_aux[j - 1]; 
+           --j; 
+       } 
+       aretes_triees[j] = key; 
+       poids_aux[j] = key_weight; 
+   } 
+
+   // Libérer la mémoire allouée 
+   free(poids_aux); 
 }
 
 void kruskal(graphe const *g, double const *poids_arete, graphe *acm)

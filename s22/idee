@@ -1,0 +1,80 @@
+pour envoi de trame : 
+envoi_trame(reseau r , stationsource , trame t)
+{
+    tab_sommets_adj[] = sommet_adjacents de stationsource
+    transfer_trame(r , stationsource , tab_sommets_adj[0], trame)//vù qu'une station n'a forcément qu'un sommet adjacent (qui est un switch) , je peux faire tab_sommets_adj[0]
+}
+
+
+// stationsource envoi une trame dans le reseau 
+void envoi_trame(reseau *r, equipement *stationsource, trame_ethernet *trame) {
+    // Obtenir les sommets adjacents de la station source
+    sommet sa[r->m_graphe.ordre]; // Taille à ajuster selon les besoins
+    size_t nb_adj = sommets_adjacents(&r->m_graphe, stationsource - r->m_equipements, sa);
+
+    // Assumer qu'une station n'a qu'un seul sommet adjacent (un switch)
+    if (nb_adj > 0) {
+        transfer_trame(r, stationsource, &r->m_equipements[sa[0]], trame);
+    }
+}
+
+// relayage de trame 
+void transfer_trame(reseau *r, equipement *source, equipement *destinataire, trame_ethernet *trame) {
+    if (destinataire->type == SWITCH) {
+        Switch *sw = &destinataire->data.m_switch;
+        
+        // Récupérer les sommets adjacents du switch destinataire
+        sommet sa[r->m_graphe.ordre]; // Taille à ajuster selon les besoins
+        size_t nb_adj = sommets_adjacents(&r->m_graphe, destinataire - r->m_equipements, sa);
+
+        // Trouver le port source
+        int port_src = -1;
+        for (size_t i = 0; i < nb_adj; i++) {
+            if (sa[i] == (source - r->m_equipements)) {
+                port_src = i;
+                break;
+            }
+        }
+
+        // Vérifier si le MAC source est dans la table de commutation
+        if (trouverPortPourMAC(&sw->table, trame->source_mac) == -1) {
+            ajouterEntree(&sw->table, trame->source_mac, port_src);
+        }
+
+        // Trouver le port destination
+        int port_dest = -1;
+        for (size_t i = 0; i < nb_adj; i++) {
+            equipement *adj_eq = &r->m_equipements[sa[i]];
+            if (adj_eq->type == STATION) {
+                station *sta = &adj_eq->data.m_station;
+                if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) {
+                    port_dest = i;
+                    break;
+                }
+            }
+        }
+
+        if (port_dest != -1) {
+            // Transférer la trame via le port correspondant
+            transfer_trame(r, destinataire, &r->m_equipements[sa[port_dest]], trame);
+        } else {
+            // Transférer la trame à tous les sommets adjacents sauf celui de la source
+            for (size_t i = 0; i < nb_adj; i++) {
+                if (sa[i] != (source - r->m_equipements)) {
+                    transfer_trame(r, destinataire, &r->m_equipements[sa[i]], trame);
+                }
+            }
+        }
+    } else if (destinataire->type == STATION) {
+        station *sta = &destinataire->data.m_station;
+        if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) {
+            printf("Je suis MAC: ");
+            printMACAddress(sta->m_adresseMac);
+            printf(", j'ai reçu ma trame.\n");
+        } else {
+            printf("Je suis MAC: ");
+            printMACAddress(sta->m_adresseMac);
+            printf(", trame pas pour moi.\n");
+        }
+    }
+}

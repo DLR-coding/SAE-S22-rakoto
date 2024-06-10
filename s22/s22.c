@@ -195,7 +195,7 @@ void printReseau(reseau r)
 {
     printf("Nombre d'équipements : %zu\n", r.nb_equipements);
     for (size_t i = 0; i < r.nb_equipements; i++) {
-        printf("Équipement %zu :\n", i+1);
+        printf("Équipement %zu :\n", i);
         if (r.m_equipements[i].type == STATION) {
             printf("  Type : Station\n");
             printf("  Adresse MAC : ");
@@ -321,7 +321,7 @@ int trouver_port_station(Switch *sw, MACAddress mac_dest) {
     return -1;
 }
 */
-
+/*
 //switch envoyer tram à switch. utiliser quand switch --> equipement
 void envoyer_trame(Switch* sw, trame_ethernet* trame, int port_dest) 
 {
@@ -393,11 +393,11 @@ bool stp(reseau *r)
     }
     
    return false;
-   */
+   
 }
-
+*/
 int main() {
-    /*
+    
     //PARTIE 2    
     // Créer une structure de réseau vide
     reseau r;
@@ -406,7 +406,7 @@ int main() {
     init_reseau(&r);
 
     // Lire le fichier de configuration et créer le réseau
-    if (!lire_config("reseau_config.txt", &r)) {
+    if (!lire_config("mylan.txt", &r)) {
         fprintf(stderr, "Erreur lors de la lecture du fichier de configuration.\n");
         return 1;
     }
@@ -418,7 +418,7 @@ int main() {
     // Libérer la mémoire allouée pour les équipements et la structure de graphe
     free(r.m_equipements);
     free_graphe(&r.m_graphe);
-    */
+    
 
    
 

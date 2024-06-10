@@ -1,10 +1,23 @@
-all: test test2 s22
+CC=gcc
+CFLAGS=-Wall -Wextra -g
+LDFLAGS=
 
-test: test.c
-	gcc -g  test.c graphe.c algos.c -o test  
+# List of source files
+SRCS=graphe.c algos.c s22.c main2.c
 
-test2: test2.c
-	gcc -g  test2.c graphe.c algos.c -o test2  
+# List of object files
+OBJS=$(SRCS:.c=.o)
 
-s22: s22.c
-	gcc -g  s22.c graphe.c algos.c -o s22 
+# Name of the executable
+EXEC=main2
+
+all: $(EXEC)
+
+$(EXEC): $(OBJS)
+	$(CC) $(LDFLAGS) $(OBJS) -o $@
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(OBJS) $(EXEC)

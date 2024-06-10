@@ -126,8 +126,20 @@ size_t sommets_adjacents(graphe const *g, sommet s, sommet sa[])
     // (on suppose que s fait bien partie du graphe g)
     // (le tableau sa est supposé assez grand pour contenir les sommets adjacents de s)
 
-    int nbsommet = 0;
-    //printf("sommet adjacents : %d\n",g->nb_aretes);
+    int nbsommet=0;
+    /*
+    int i = 0; 
+    bool present = false;    
+    while (present == false && i < g->nb_aretes)
+    {
+        if (s == g->aretes[i].s1 || s == g->aretes[i].s2) 
+        {
+            present = true ;
+        }        
+        i++;
+    }
+    */
+
    for (int i = 0; i < g->nb_aretes; i++)
    {
         if (s == g->aretes[i].s1 ) 

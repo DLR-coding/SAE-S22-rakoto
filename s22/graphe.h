@@ -9,6 +9,7 @@ typedef struct arete
 {
     sommet s1;
     sommet s2;
+    double poids;
 } arete;
 
 typedef struct graphe
