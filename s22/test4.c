@@ -20,7 +20,7 @@ typedef struct MACAddress {
 typedef enum PortState{
     PORT_BLOCKED,
     PORT_ROOT,
-    PORT_DESIGNATED
+    PORT_DESIGNATED // état par défaut
 } PortState;
 
 // Structure pour les BPDUs
@@ -231,7 +231,7 @@ void initTableDeCommutation(TableDeCommutation *table, int capacite, MACAddress 
         table->tab_entrees[i].capacite = 1;
         table->tab_entrees[i].m_port = -1; // port associé , -1 == aucun
         table->tab_entrees[i].tab_macAddresses = malloc(1 * sizeof(MACAddress)); //tab_MAC => 1 slot
-        table->tab_entrees[i].port_state = PORT_BLOCKED;
+        table->tab_entrees[i].port_state = PORT_DESIGNATED;
         initBPDU(&table->tab_entrees[i].bpdu, MACswitch, 0, MACswitch);
     }
 }
@@ -307,7 +307,7 @@ void initSwitch(Switch *sw, MACAddress mac, int nbport, int priorite) {
     //(STP) init des ports 
     sw->port_states = malloc(nbport * sizeof(PortState));
     for (int i = 0; i < nbport; i++) {
-        sw->port_states[i] = PORT_BLOCKED; // Initialiser tous les ports à l'état BLOQUED => inactif (qd pas STP) par défaut             
+        sw->port_states[i] = PORT_DESIGNATED; // Initialiser tous les ports à l'état BLOQUED => inactif (qd pas STP) par défaut             
         // NOTE : quand stp , foreach port in port_states --> if STATE != BLOCKED , transfer_trame. Else , rien.
     }
 }
