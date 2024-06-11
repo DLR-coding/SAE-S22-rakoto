@@ -1,80 +1,134 @@
-pour envoi de trame : 
-envoi_trame(reseau r , stationsource , trame t)
+pour STP :
+
+
+typedef struct Switch{
+    MACAddress mac;
+    int nbport;
+    int priorite;
+    PortState port_states[MAX_PORTS];
+    BPDU bpdus // BPDU de switch
+} Switch;
+
+////// PARTIE 4 
+
+typedef struct {
+    MACAddress root_id;
+    uint32_t cost;
+    MACAddress transmeter_id;
+} BPDU;
+
+typedef enum {
+    INACTIF,
+    RACINE,
+    DESIGNATED
+} PortState;
+
+
+Pour transfer bpdu : 
+while(change != O)
 {
-    tab_sommets_adj[] = sommet_adjacents de stationsource
-    transfer_trame(r , stationsource , tab_sommets_adj[0], trame)//vù qu'une station n'a forcément qu'un sommet adjacent (qui est un switch) , je peux faire tab_sommets_adj[0]
+  
+    foreach switch 
+    {
+       --> change = 0
+       foreach voisin de 
+       {
+            envoyerBPDU à chaques voisin de switch 
+            if envoyerBPDU a fait un changement , change++
+       }    
+    }      
 }
 
+envoi de BPDU à une destination et retourne 
+si bpdu de destination est moins bien que bpdu de switch source
+{
+    //changer bpdu 
+    bpdu de destination = bpdu de source 
+} 
+sinon 
 
-// stationsource envoi une trame dans le reseau 
-void envoi_trame(reseau *r, equipement *stationsource, trame_ethernet *trame) {
-    // Obtenir les sommets adjacents de la station source
-    sommet sa[r->m_graphe.ordre]; // Taille à ajuster selon les besoins
-    size_t nb_adj = sommets_adjacents(&r->m_graphe, stationsource - r->m_equipements, sa);
+il faut completer le code avec la mise à jour des états des ports dans le tableau PortState de switch sachant que dans ce tableau , le port 1 du switch est assimilé au PortState[1] et ainsi de suite pour chacun des port
 
-    // Assumer qu'une station n'a qu'un seul sommet adjacent (un switch)
-    if (nb_adj > 0) {
-        transfer_trame(r, stationsource, &r->m_equipements[sa[0]], trame);
+
+//////// idee pour 
+///////
+
+void initBPDU(BPDU *bpdu, MACAddress root_id, uint32_t cost, MACAddress transmitting_id) {
+    bpdu->root_id = root_id;
+    bpdu->cost = cost;
+    bpdu->transmitting_id = transmitting_id;
+}
+
+void sendBPDU(Switch *sw, int port, BPDU bpdu) {
+    sw->bpdus[port] = bpdu;
+    printf("Sending BPDU on port %d from switch: ", port);
+    printMACAddress(sw->mac);
+    printf("BPDU root ID: ");
+    printMACAddress(bpdu.root_id);
+    printf("Cost: %d\n", bpdu.cost);
+    printf("Transmitting ID: ");
+    printMACAddress(bpdu.transmitting_id);
+    printf("\n");
+}
+
+void receiveBPDU(Switch *sw, int port, BPDU bpdu) {
+    printf("Receiving BPDU on port %d at switch: ", port);
+    printMACAddress(sw->mac);
+    printf("BPDU root ID: ");
+    printMACAddress(bpdu.root_id);
+    printf("Cost: %d\n", bpdu.cost);
+    printf("Transmitting ID: ");
+    printMACAddress(bpdu.transmitting_id);
+    printf("\n");
+
+    // Update the BPDU information on the port if the new BPDU is better
+    if (memcmp(&bpdu, &sw->bpdus[port], sizeof(BPDU)) < 0) {
+        sw->bpdus[port] = bpdu;
+        printf("Updated BPDU on port %d at switch: ", port);
+        printMACAddress(sw->mac);
+        printf("\n");
     }
 }
 
-// relayage de trame 
-void transfer_trame(reseau *r, equipement *source, equipement *destinataire, trame_ethernet *trame) {
-    if (destinataire->type == SWITCH) {
-        Switch *sw = &destinataire->data.m_switch;
-        
-        // Récupérer les sommets adjacents du switch destinataire
-        sommet sa[r->m_graphe.ordre]; // Taille à ajuster selon les besoins
-        size_t nb_adj = sommets_adjacents(&r->m_graphe, destinataire - r->m_equipements, sa);
-
-        // Trouver le port source
-        int port_src = -1;
-        for (size_t i = 0; i < nb_adj; i++) {
-            if (sa[i] == (source - r->m_equipements)) {
-                port_src = i;
-                break;
-            }
-        }
-
-        // Vérifier si le MAC source est dans la table de commutation
-        if (trouverPortPourMAC(&sw->table, trame->source_mac) == -1) {
-            ajouterEntree(&sw->table, trame->source_mac, port_src);
-        }
-
-        // Trouver le port destination
-        int port_dest = -1;
-        for (size_t i = 0; i < nb_adj; i++) {
-            equipement *adj_eq = &r->m_equipements[sa[i]];
-            if (adj_eq->type == STATION) {
-                station *sta = &adj_eq->data.m_station;
-                if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) {
-                    port_dest = i;
-                    break;
-                }
-            }
-        }
-
-        if (port_dest != -1) {
-            // Transférer la trame via le port correspondant
-            transfer_trame(r, destinataire, &r->m_equipements[sa[port_dest]], trame);
-        } else {
-            // Transférer la trame à tous les sommets adjacents sauf celui de la source
-            for (size_t i = 0; i < nb_adj; i++) {
-                if (sa[i] != (source - r->m_equipements)) {
-                    transfer_trame(r, destinataire, &r->m_equipements[sa[i]], trame);
-                }
-            }
-        }
-    } else if (destinataire->type == STATION) {
-        station *sta = &destinataire->data.m_station;
-        if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) {
-            printf("Je suis MAC: ");
-            printMACAddress(sta->m_adresseMac);
-            printf(", j'ai reçu ma trame.\n");
-        } else {
-            printf("Je suis MAC: ");
-            printMACAddress(sta->m_adresseMac);
-            printf(", trame pas pour moi.\n");
-        }
+void initSwitch(Switch *sw, MACAddress mac, int nbport, int priorite) {
+    sw->mac = mac;
+    sw->nbport = nbport;
+    sw->priorite = priorite;
+    for (int i = 0; i < nbport; i++) {
+        sw->port_states[i] = INACTIF;
     }
+}
+
+int main() {
+    // Initialisation du réseau
+    Reseau r;
+    r.nb_equipements = 2;
+    r.tab_equipements = malloc(r.nb_equipements * sizeof(Equipement));
+
+    // Initialisation des switches
+    MACAddress mac1 = {{0x01, 0x45, 0x23, 0xa6, 0xf7, 0xab}};
+    MACAddress mac2 = {{0x02, 0x45, 0x23, 0xa6, 0xf7, 0xac}};
+    
+    Switch sw1, sw2;
+    initSwitch(&sw1, mac1, 8, 1024);
+    initSwitch(&sw2, mac2, 8, 2048);
+
+    r.tab_equipements[0].type = SWITCH;
+    r.tab_equipements[0].data.m_switch = sw1;
+
+    r.tab_equipements[1].type = SWITCH;
+    r.tab_equipements[1].data.m_switch = sw2;
+
+    // Initialiser et envoyer un BPDU depuis le premier switch
+    BPDU bpdu;
+    initBPDU(&bpdu, mac1, 0, mac1);
+    sendBPDU(&r.tab_equipements[0].data.m_switch, 0, bpdu);
+
+    // Recevoir le BPDU sur le deuxième switch
+    receiveBPDU(&r.tab_equipements[1].data.m_switch, 0, bpdu);
+
+    // Free mémoire
+    free(r.tab_equipements);
+
+    return 0;
 }

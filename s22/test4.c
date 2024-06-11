@@ -20,9 +20,15 @@ typedef struct MACAddress {
 typedef enum PortState{
     PORT_BLOCKED,
     PORT_ROOT,
-    PORT_DESIGNATED,
-    PORT_DEFAUT
+    PORT_DESIGNATED
 } PortState;
+
+// Structure pour les BPDUs
+typedef struct {
+    MACAddress root_id;        // Identifiant de la racine
+    uint32_t cost;             // Coût du chemin vers la racine
+    MACAddress transmitting_id; // Identifiant du pont émetteur
+} BPDU;
 
 typedef struct switchTableEntry {
     MACAddress *tab_macAddresses;  // Tableau dynamique d'adresses MAC
@@ -30,6 +36,7 @@ typedef struct switchTableEntry {
     int capacite;              // Capacité du tableau d'adresses MAC
     int m_port;
     PortState port_state; // Ajout de l'état du port
+    BPDU bpdu;           // BPDU sur le port de la switchtableEntry
 } switchTableEntry;
 
 typedef struct TableDeCommutation {
@@ -92,6 +99,14 @@ void setPortState(Switch *sw, int port, PortState state) {
     }
     sw->port_states[port] = state;
 }
+
+//fonction initBPDU avec rootMAC , cout , MAC du switch qui envoi la bpdu
+void initBPDU(BPDU *bpdu, MACAddress root_id, uint32_t cost, MACAddress transmitting_id) {
+    bpdu->root_id = root_id;
+    bpdu->cost = cost;
+    bpdu->transmitting_id = transmitting_id;
+}
+
 /////////////////////
 
 //Fonctions SWITCH      #####################""
@@ -128,9 +143,6 @@ void printSwitchTableEntry(switchTableEntry entry) {
             break;
         case PORT_DESIGNATED:
             printf("Désigné\n");
-            break;
-        case PORT_DEFAUT:
-            printf("Inconnu/Défaut\n");
             break;
         default:
             printf("Inconnu\n");
@@ -209,7 +221,7 @@ void printReseau(reseau r) {
 
 
 // init la tableCommut avec la capacité : 0 mac , capcité d'entree capacite (fo donner 3 par défaut)
-void initTableDeCommutation(TableDeCommutation *table, int capacite) {
+void initTableDeCommutation(TableDeCommutation *table, int capacite, MACAddress MACswitch) {
     table->capacite = capacite;
     table->nb_entrees = 0; 
     table->tab_entrees = malloc(capacite * sizeof(switchTableEntry)); //tab d'entrées
@@ -219,7 +231,8 @@ void initTableDeCommutation(TableDeCommutation *table, int capacite) {
         table->tab_entrees[i].capacite = 1;
         table->tab_entrees[i].m_port = -1; // port associé , -1 == aucun
         table->tab_entrees[i].tab_macAddresses = malloc(1 * sizeof(MACAddress)); //tab_MAC => 1 slot
-        table->tab_entrees[i].port_state = PORT_DEFAUT;
+        table->tab_entrees[i].port_state = PORT_BLOCKED;
+        initBPDU(&table->tab_entrees[i].bpdu, MACswitch, 0, MACswitch);
     }
 }
 
@@ -261,27 +274,25 @@ void ajouterMacAUneEntree(switchTableEntry *entree, MACAddress mac) {
 }
 
 // add Entry à une TabCommut 
-void ajouterEntree(TableDeCommutation *table, MACAddress mac, int port) {
+// add Entry à une TabCommut
+void ajouterEntree(TableDeCommutation *table, MACAddress mac, int port, MACAddress root_id, uint32_t cost, MACAddress transmitting_id) {
     switchTableEntry *entree = rechercherEntreeParPort(table, port); //checker si ya déjà une entrée associé au port pcq on va addMAC à cet endroit
-    if (entree == NULL) 
-    {   //if port pas d'entree associé, ajout de la nv entree avec le port
-        if (table->nb_entrees == table->capacite) 
-        {
+    if (entree == NULL) {
+        //if port pas d'entree associé, ajout de la nv entree avec le port
+        if (table->nb_entrees == table->capacite) {
             // Redimensionner le tableau dynamique si nécessaire
             table->capacite *= 2;
             table->tab_entrees = realloc(table->tab_entrees, table->capacite * sizeof(switchTableEntry));
         }
         entree = &table->tab_entrees[table->nb_entrees]; // newEntry => dernière position dans table.tab_entrees
         entree->m_port = port;
-        entree->nb_mac = 0; 
+        entree->nb_mac = 0;
         entree->capacite = 1;
         entree->tab_macAddresses = malloc(1 * sizeof(MACAddress)); //tab_MAC => 1 slot
         table->nb_entrees++;
     }
-    //printf("ajout mac ");printMACAddress(mac);printf(" à l'entree :\n");printSwitchTableEntry(*entree);
+    initBPDU(&entree->bpdu, root_id, cost, transmitting_id);
     ajouterMacAUneEntree(entree, mac);
-
-    
 }
 
 // pour crer un switch 
@@ -291,12 +302,12 @@ void initSwitch(Switch *sw, MACAddress mac, int nbport, int priorite) {
     sw->priorite = priorite;    
 
     //creation de TableCOmmut
-    initTableDeCommutation(&sw->table ,nbport);
+    initTableDeCommutation(&sw->table ,nbport,mac);
 
     //(STP) init des ports 
     sw->port_states = malloc(nbport * sizeof(PortState));
     for (int i = 0; i < nbport; i++) {
-        sw->port_states[i] = PORT_DEFAUT; // Initialiser tous les ports à l'état NORMAL (qd pas STP) par défaut             
+        sw->port_states[i] = PORT_BLOCKED; // Initialiser tous les ports à l'état BLOQUED => inactif (qd pas STP) par défaut             
         // NOTE : quand stp , foreach port in port_states --> if STATE != BLOCKED , transfer_trame. Else , rien.
     }
 }
@@ -557,8 +568,8 @@ void printTransferTrame(equipement src , equipement dest)
 void transfer_trame(reseau *r, equipement *source, equipement *destinataire, trame_ethernet *trame) {
     printTransferTrame(*source , *destinataire);
 
-     int index_source = source - r->tab_equipements;  // Calculer l'indice de la source dans le tableau
-    int index_destinataire = destinataire - r->tab_equipements;  // Calculer l'indice du destinataire dans le tableau
+    // int index_source = source - r->tab_equipements;  // Calculer l'indice de la source dans le tableau
+    //int index_destinataire = destinataire - r->tab_equipements;  // Calculer l'indice du destinataire dans le tableau
 
     //printf("Index source: %d\n", index_source);  // Pour debug
     //printf("Index destinataire: %d\n", index_destinataire);  // Pour debug
@@ -584,25 +595,31 @@ void transfer_trame(reseau *r, equipement *source, equipement *destinataire, tra
             //printf("port_src  %d\n",port_src);
         }
 
-        // Vérifier si le MAC source est dans la table de commutation
+        // Vérifier si le MAC source est dans la table de commutation. If(non) , ajouter
         if (trouverPortPourMAC(&sw->table, trame->source_mac) == -1) {
-            ajouterEntree(&sw->table, trame->source_mac, port_src);
+            ajouterEntree(&sw->table, trame->source_mac, port_src, sw->mac, 0, sw->mac);        
         }
+        printf("port_src trv : %d\n",port_src);
 
-        // Trouver le port destination
-        int port_dest = -1;
+
+        // Vérifier si le MAC_dest est dans la table de commutation. If(oui , envoyer à ce port) , sinon , broadcast
+        // trouver le port_dest
+        int port_dest = -1;  
+        /*      
         for (size_t i = 0; i < nb_adj; i++) {
-            equipement *adj_eq = &r->tab_equipements[sa[i]];
-            if (adj_eq->type == STATION) {
+            equipement *adj_eq = &r->tab_equipements[sa[i]]; //adj_eqt => l'equipement "i" dans le tab_eqt_adj
+            if (adj_eq->type == STATION) { //foreach eqt_adj
                 station *sta = &adj_eq->data.m_station;
-                if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) {
+                if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) { //if 
                     port_dest = i;
                     break;
                 }
             }
-        }
+        } */
 
-        if (port_dest != -1) {
+        port_dest = trouverPortPourMAC(&sw->table, trame->destination_mac);                
+        if (port_dest != -1) {          
+
             // if  port_dest trouvé , Transférer la trame via le port correspondant
             transfer_trame(r, destinataire, &r->tab_equipements[sa[port_dest]], trame);
         } else {
@@ -613,14 +630,19 @@ void transfer_trame(reseau *r, equipement *source, equipement *destinataire, tra
                 }
             }
         }
-    } else if (destinataire->type == STATION) {
+    } 
+    else if (destinataire->type == STATION) 
+    {
+        printf("dest.type : station : \n");
         station *sta = &destinataire->data.m_station;
-        if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) {
+        if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) 
+        {
             printf("Je suis MAC: ");
             printMACAddress(sta->m_adresseMac);
             printf(", j'ai reçu ma trame. Disant : \n");
             printf("< %s >\n", trame->data);
-        } else {
+        } 
+        else {
             printf("Je suis MAC: ");
             printMACAddress(sta->m_adresseMac);
             printf(", trame pas pour moi.\n");
@@ -643,6 +665,7 @@ void envoi_trame(reseau *r, equipement *stationsource, trame_ethernet *trame) {
 
 
 
+// demander si c'est 1 BPDU  pour 2 port
 
 int main() {
     reseau r;

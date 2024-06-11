@@ -3,7 +3,7 @@ CFLAGS=-Wall -Wextra -g
 LDFLAGS=
 
 # List of source files
-SRCS=graphe.c algos.c s22.c main2.c
+SRCS=graphe.c algos.c s22.c main2.c main3.c main4.c
 
 # List of object files
 OBJS=$(SRCS:.c=.o)
