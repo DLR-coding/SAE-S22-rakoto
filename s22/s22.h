@@ -127,4 +127,3 @@ equipement *get_equipement_by_mac(reseau *r, MACAddress mac);
 void printTransferTrame(equipement src , equipement dest);
 void transfer_trame(reseau *r, equipement *source, equipement *destinataire, trame_ethernet *trame);
 void envoi_trame(reseau *r, equipement *stationsource, trame_ethernet *trame);
-void mettreAJourEtatsPorts(Switch* sw);

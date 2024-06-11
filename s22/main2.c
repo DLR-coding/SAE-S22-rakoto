@@ -1,4 +1,4 @@
-#include "test4.c"
+#include "s22.c"
 #include "stdio.h"
 
 int main() {

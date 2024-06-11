@@ -20,7 +20,7 @@ typedef struct MACAddress {
 typedef enum PortState{
     PORT_BLOCKED,
     PORT_ROOT,
-    PORT_DESIGNATED
+    PORT_DESIGNATED // état par défaut
 } PortState;
 
 // Structure pour les BPDUs
@@ -47,14 +47,13 @@ typedef struct TableDeCommutation {
 
 
 
-// sw
+// switch
 typedef struct Switch {
     MACAddress mac;
     int nbport;
     int priorite;
     TableDeCommutation table;
     PortState *port_states; // Tableau des états des ports
-    BPDU bpdu // BPDU de sw
 } Switch; 
 
 // Structure de la station
@@ -92,7 +91,7 @@ typedef struct trame_ethernet{
 ///////////////////////////
 
 // fonctions PORTS #####################""
-// (STP) définit l'état d'un port dans une (entrée du) sw 
+// (STP) définit l'état d'un port dans une (entrée du) switch 
 void setPortState(Switch *sw, int port, PortState state) {
     if (port < 0 || port >= sw->nbport) {
         printf("Erreur : port invalide\n");
@@ -101,7 +100,7 @@ void setPortState(Switch *sw, int port, PortState state) {
     sw->port_states[port] = state;
 }
 
-//fonction initBPDU avec rootMAC , cout , MAC du sw qui envoi la bpdu
+//fonction initBPDU avec rootMAC , cout , MAC du switch qui envoi la bpdu
 void initBPDU(BPDU *bpdu, MACAddress root_id, uint32_t cost, MACAddress transmitting_id) {
     bpdu->root_id = root_id;
     bpdu->cost = cost;
@@ -130,7 +129,7 @@ void printMACAddress(MACAddress mac) {
 }
 
 
-// Fonction pour afficher une entrée de la table de commutation d'un sw
+// Fonction pour afficher une entrée de la table de commutation d'un switch
 void printSwitchTableEntry(switchTableEntry entry) {
     printf("Port : %d\n", entry.m_port);
     printf("nb_MACs : %d\n", entry.nb_mac);
@@ -158,7 +157,7 @@ void printSwitchTableEntry(switchTableEntry entry) {
     printf("\n");
 }
 
-// Fonction pour afficher une table de commutation d'un sw
+// Fonction pour afficher une table de commutation d'un switch
 void printSwitchTable(TableDeCommutation table) {
     printf("Table de commutation :\n");
     for(int i = 0; i < table.nb_entrees; i++) {
@@ -167,7 +166,7 @@ void printSwitchTable(TableDeCommutation table) {
     }
 }
 
-// Fonction pour afficher les informations d'un sw
+// Fonction pour afficher les informations d'un switch
 void printSwitch(Switch sw) {
     printf("Switch :\n");
     printf("— adresse MAC : ");
@@ -218,6 +217,9 @@ void printReseau(reseau r) {
 }
 
 
+
+
+
 // init la tableCommut avec la capacité : 0 mac , capcité d'entree capacite (fo donner 3 par défaut)
 void initTableDeCommutation(TableDeCommutation *table, int capacite, MACAddress MACswitch) {
     table->capacite = capacite;
@@ -229,7 +231,7 @@ void initTableDeCommutation(TableDeCommutation *table, int capacite, MACAddress 
         table->tab_entrees[i].capacite = 1;
         table->tab_entrees[i].m_port = -1; // port associé , -1 == aucun
         table->tab_entrees[i].tab_macAddresses = malloc(1 * sizeof(MACAddress)); //tab_MAC => 1 slot
-        table->tab_entrees[i].port_state = PORT_BLOCKED;
+        table->tab_entrees[i].port_state = PORT_DESIGNATED;
         initBPDU(&table->tab_entrees[i].bpdu, MACswitch, 0, MACswitch);
     }
 }
@@ -293,7 +295,7 @@ void ajouterEntree(TableDeCommutation *table, MACAddress mac, int port, MACAddre
     ajouterMacAUneEntree(entree, mac);
 }
 
-// pour crer un sw 
+// pour crer un switch 
 void initSwitch(Switch *sw, MACAddress mac, int nbport, int priorite) {
     sw->mac = mac;
     sw->nbport = nbport;
@@ -305,7 +307,7 @@ void initSwitch(Switch *sw, MACAddress mac, int nbport, int priorite) {
     //(STP) init des ports 
     sw->port_states = malloc(nbport * sizeof(PortState));
     for (int i = 0; i < nbport; i++) {
-        sw->port_states[i] = PORT_BLOCKED; // Initialiser tous les ports à l'état BLOQUED => inactif (qd pas STP) par défaut             
+        sw->port_states[i] = PORT_DESIGNATED; // Initialiser tous les ports à l'état BLOQUED => inactif (qd pas STP) par défaut             
         // NOTE : quand stp , foreach port in port_states --> if STATE != BLOCKED , transfer_trame. Else , rien.
     }
 }
@@ -575,7 +577,7 @@ void transfer_trame(reseau *r, equipement *source, equipement *destinataire, tra
     if (destinataire->type == SWITCH) {
         Switch *sw = &destinataire->data.m_switch;
         
-        // Récupérer les sommets adjacents du sw destinataire
+        // Récupérer les sommets adjacents du switch destinataire
         sommet sa[r->m_graphe.ordre]; // Taille à ajuster selon les besoins
         size_t nb_adj = sommets_adjacents(&r->m_graphe, destinataire - r->tab_equipements, sa);
         
@@ -593,25 +595,31 @@ void transfer_trame(reseau *r, equipement *source, equipement *destinataire, tra
             //printf("port_src  %d\n",port_src);
         }
 
-        // Vérifier si le MAC source est dans la table de commutation
+        // Vérifier si le MAC source est dans la table de commutation. If(non) , ajouter
         if (trouverPortPourMAC(&sw->table, trame->source_mac) == -1) {
             ajouterEntree(&sw->table, trame->source_mac, port_src, sw->mac, 0, sw->mac);        
         }
+        printf("port_src trv : %d\n",port_src);
 
-        // Trouver le port destination
-        int port_dest = -1;
+
+        // Vérifier si le MAC_dest est dans la table de commutation. If(oui , envoyer à ce port) , sinon , broadcast
+        // trouver le port_dest
+        int port_dest = -1;  
+        /*      
         for (size_t i = 0; i < nb_adj; i++) {
-            equipement *adj_eq = &r->tab_equipements[sa[i]];
-            if (adj_eq->type == STATION) {
+            equipement *adj_eq = &r->tab_equipements[sa[i]]; //adj_eqt => l'equipement "i" dans le tab_eqt_adj
+            if (adj_eq->type == STATION) { //foreach eqt_adj
                 station *sta = &adj_eq->data.m_station;
-                if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) {
+                if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) { //if 
                     port_dest = i;
                     break;
                 }
             }
-        }
+        } */
 
-        if (port_dest != -1) {
+        port_dest = trouverPortPourMAC(&sw->table, trame->destination_mac);                
+        if (port_dest != -1) {          
+
             // if  port_dest trouvé , Transférer la trame via le port correspondant
             transfer_trame(r, destinataire, &r->tab_equipements[sa[port_dest]], trame);
         } else {
@@ -622,14 +630,19 @@ void transfer_trame(reseau *r, equipement *source, equipement *destinataire, tra
                 }
             }
         }
-    } else if (destinataire->type == STATION) {
+    } 
+    else if (destinataire->type == STATION) 
+    {
+        printf("dest.type : station : \n");
         station *sta = &destinataire->data.m_station;
-        if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) {
+        if (memcmp(&sta->m_adresseMac, &trame->destination_mac, sizeof(MACAddress)) == 0) 
+        {
             printf("Je suis MAC: ");
             printMACAddress(sta->m_adresseMac);
             printf(", j'ai reçu ma trame. Disant : \n");
             printf("< %s >\n", trame->data);
-        } else {
+        } 
+        else {
             printf("Je suis MAC: ");
             printMACAddress(sta->m_adresseMac);
             printf(", trame pas pour moi.\n");
@@ -643,7 +656,7 @@ void envoi_trame(reseau *r, equipement *stationsource, trame_ethernet *trame) {
     sommet sa[r->m_graphe.ordre]; // Taille à ajuster selon les besoins
     size_t nb_adj = sommets_adjacents(&r->m_graphe, stationsource - r->tab_equipements, sa);
     //printf("nb_sommet adjacent : %u \n", nb_adj);
-    // Assumer qu'une station n'a qu'un seul sommet adjacent (un sw)    
+    // Assumer qu'une station n'a qu'un seul sommet adjacent (un switch)    
     transfer_trame(r, stationsource, &r->tab_equipements[sa[0]], trame);
     
 }
@@ -735,32 +748,4 @@ void stpProtocol(reseau *r) {
 }
 */
 
-int main() {
-    reseau r;
-    // Initialiser le réseau à partir du fichier de configuration
-    lire_config("reseau_config.txt", &r);
-    printReseau(r);
 
-    equipement *sw0 = &r.tab_equipements[0];
-    if (sw0->type == SWITCH) {
-        printf("sw0 : SWITCH\n");
-    } else {
-        printf("sw0 : STATION\n");
-    }
-
-    equipement *st1 = &r.tab_equipements[1];
-    equipement *st2 = &r.tab_equipements[2];
-
-    // Initialiser la trame
-    trame_ethernet trame;
-    init_trame(&trame, *get_mac_address(st1), *get_mac_address(st2), "message de st1 à st2");
-
-    // Envoyer la trame
-    envoi_trame(&r, st1, &trame);
-
-    // Afficher la table de commutation après l'envoi de la trame
-    printSwitch(sw0->data.m_switch);
-    // Free mémoire
-    freeReseau(&r);
-    return 0;
-}
