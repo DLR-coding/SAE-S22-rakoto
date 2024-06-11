@@ -238,7 +238,7 @@ void appliquer_permutation(graphe const *src, graphe *dst, size_t const *permuta
 }
 
 uint32_t estimation_nb_chromatique(graphe const *g, uint32_t n) 
-{ 
+{ /*
    uint32_t min_couleurs = g->ordre;  // Initialiser à un maximum possible de couleurs 
    size_t *permutation = malloc(g->ordre * sizeof(size_t)); 
    uint8_t *couleur_sommet = malloc(g->ordre * sizeof(uint8_t)); 
@@ -267,7 +267,7 @@ uint32_t estimation_nb_chromatique(graphe const *g, uint32_t n)
    free(permutation); 
    free(couleur_sommet); 
 
-   return min_couleurs; 
+   return min_couleurs; */
 } 
 
 void generer_aleatoire(graphe *g, size_t ordre, uint32_t k) 

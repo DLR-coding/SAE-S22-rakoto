@@ -1,23 +1,40 @@
-CC=gcc
-CFLAGS=-Wall -Wextra -g
-LDFLAGS=
+# Makefile for compiling and linking main, main2, and main3
 
-# List of source files
-SRCS=graphe.c algos.c s22.c main2.c
+CC = gcc
+CFLAGS = -Wall -Wextra -Werror
+OBJDIR = obj
 
-# List of object files
-OBJS=$(SRCS:.c=.o)
+# Source files
+SRCS = main.c main2.c main3.c graphe.c algos.c utils.c
+# Object files
+OBJS = $(patsubst %.c, $(OBJDIR)/%.o, $(SRCS))
 
-# Name of the executable
-EXEC=main2
+# Executables
+EXECS = main main2 main3
 
-all: $(EXEC)
+# Default target
+all: $(EXECS)
 
-$(EXEC): $(OBJS)
-	$(CC) $(LDFLAGS) $(OBJS) -o $@
+# Rule for creating object directory
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
 
-%.o: %.c
+# Rules for creating object files
+$(OBJDIR)/%.o: %.c | $(OBJDIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Rules for linking executables
+main: $(OBJDIR)/main.o $(OBJDIR)/graphe.o $(OBJDIR)/algos.o $(OBJDIR)/utils.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+main2: $(OBJDIR)/main2.o $(OBJDIR)/graphe.o $(OBJDIR)/algos.o $(OBJDIR)/utils.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+main3: $(OBJDIR)/main3.o $(OBJDIR)/graphe.o $(OBJDIR)/algos.o $(OBJDIR)/utils.o
+	$(CC) $(CFLAGS) $^ -o $@
+
+# Clean rule
 clean:
-	rm -f $(OBJS) $(EXEC)
+	rm -rf $(OBJDIR) $(EXECS)
+
+.PHONY: all clean

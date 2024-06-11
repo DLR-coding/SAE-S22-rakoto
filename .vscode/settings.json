@@ -7,6 +7,10 @@
         "time.h": "c",
         "*.tcc": "c",
         "algorithm": "c",
-        "system_error": "c"
+        "system_error": "c",
+        "idee": "c",
+        "graphe.h": "c",
+        "stdlib.h": "c",
+        "algos.h": "c"
     }
 }

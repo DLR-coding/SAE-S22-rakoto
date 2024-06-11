@@ -1,4 +1,4 @@
-#include "test4.c"
+#include "s22.c"
 #include "stdio.h"
 
 int main() {
@@ -8,12 +8,6 @@ int main() {
     printReseau(r);
 
     equipement *sw0 = &r.tab_equipements[0];
-    if (sw0->type == SWITCH) {
-        printf("sw0 : SWITCH\n");
-    } else {
-        printf("sw0 : STATION\n");
-    }
-
     equipement *st1 = &r.tab_equipements[1];
     equipement *st2 = &r.tab_equipements[2];
 
